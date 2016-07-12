@@ -1,0 +1,1011 @@
+
+safeg.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+20018000 <safeg_init>:
+/*
+ * safeg自身の初期化を行う
+ */
+int
+safeg_init()
+{
+20018000:	e52db004 	push	{fp}		; (str fp, [sp, #-4]!)
+20018004:	e28db000 	add	fp, sp, #0
+20018008:	e24dd00c 	sub	sp, sp, #12
+    unsigned long *addr = 0;
+2001800c:	e3a03000 	mov	r3, #0
+20018010:	e50b3008 	str	r3, [fp, #-8]
+    int cpu_id;
+
+    /*
+     * Monitor Vector Table Base Register へのアドレスを登録 
+     */
+    CP15_MVBAR_WRITE(&MonitorVectorTableBase);
+20018014:	e3003000 	movw	r3, #0
+20018018:	e3423001 	movt	r3, #8193	; 0x2001
+2001801c:	ee0c3f30 	mcr	15, 0, r3, cr12, cr0, {1}
+
+    /*
+     * Non-Secure Access Control Registerの設定
+     */
+    CP15_NSACR_WRITE(NSACR_SETTING);
+20018020:	e3033fff 	movw	r3, #16383	; 0x3fff
+20018024:	e3403007 	movt	r3, #7
+20018028:	ee013f51 	mcr	15, 0, r3, cr1, cr1, {2}
+	 */
+#ifdef SAFEG_KZMCA9
+    CP15_MPIDR_READ(cpu_id);
+    cpu_id &= 0x0f; // MPIDRの下位4bitのみを有効にする
+#else
+	cpu_id = 0;
+2001802c:	e3a03000 	mov	r3, #0
+20018030:	e50b300c 	str	r3, [fp, #-12]
+     * 適切な値を設定すること. 
+     * 
+     * マルチコア：コアIDでテーブルを引くように変更
+     */
+    // Context Area for Trust
+    for (addr = nt_area_table[cpu_id]; addr < nt_area_end_table[cpu_id]; addr++) {
+20018034:	e30836a8 	movw	r3, #34472	; 0x86a8
+20018038:	e3423001 	movt	r3, #8193	; 0x2001
+2001803c:	e51b200c 	ldr	r2, [fp, #-12]
+20018040:	e7933102 	ldr	r3, [r3, r2, lsl #2]
+20018044:	e50b3008 	str	r3, [fp, #-8]
+20018048:	ea000005 	b	20018064 <safeg_init+0x64>
+       	*addr = 0;
+2001804c:	e51b3008 	ldr	r3, [fp, #-8]
+20018050:	e3a02000 	mov	r2, #0
+20018054:	e5832000 	str	r2, [r3]
+     * 適切な値を設定すること. 
+     * 
+     * マルチコア：コアIDでテーブルを引くように変更
+     */
+    // Context Area for Trust
+    for (addr = nt_area_table[cpu_id]; addr < nt_area_end_table[cpu_id]; addr++) {
+20018058:	e51b3008 	ldr	r3, [fp, #-8]
+2001805c:	e2833004 	add	r3, r3, #4
+20018060:	e50b3008 	str	r3, [fp, #-8]
+20018064:	e30836b8 	movw	r3, #34488	; 0x86b8
+20018068:	e3423001 	movt	r3, #8193	; 0x2001
+2001806c:	e51b200c 	ldr	r2, [fp, #-12]
+20018070:	e7932102 	ldr	r2, [r3, r2, lsl #2]
+20018074:	e51b3008 	ldr	r3, [fp, #-8]
+20018078:	e1520003 	cmp	r2, r3
+2001807c:	8afffff2 	bhi	2001804c <safeg_init+0x4c>
+       	*addr = 0;
+    }
+    // Context Area for Non-trust
+    for (addr = t_area_table[cpu_id]; addr < t_area_end_table[cpu_id]; addr++) {
+20018080:	e30836c8 	movw	r3, #34504	; 0x86c8
+20018084:	e3423001 	movt	r3, #8193	; 0x2001
+20018088:	e51b200c 	ldr	r2, [fp, #-12]
+2001808c:	e7933102 	ldr	r3, [r3, r2, lsl #2]
+20018090:	e50b3008 	str	r3, [fp, #-8]
+20018094:	ea000005 	b	200180b0 <safeg_init+0xb0>
+       	*addr = 0;
+20018098:	e51b3008 	ldr	r3, [fp, #-8]
+2001809c:	e3a02000 	mov	r2, #0
+200180a0:	e5832000 	str	r2, [r3]
+    // Context Area for Trust
+    for (addr = nt_area_table[cpu_id]; addr < nt_area_end_table[cpu_id]; addr++) {
+       	*addr = 0;
+    }
+    // Context Area for Non-trust
+    for (addr = t_area_table[cpu_id]; addr < t_area_end_table[cpu_id]; addr++) {
+200180a4:	e51b3008 	ldr	r3, [fp, #-8]
+200180a8:	e2833004 	add	r3, r3, #4
+200180ac:	e50b3008 	str	r3, [fp, #-8]
+200180b0:	e30836d8 	movw	r3, #34520	; 0x86d8
+200180b4:	e3423001 	movt	r3, #8193	; 0x2001
+200180b8:	e51b200c 	ldr	r2, [fp, #-12]
+200180bc:	e7932102 	ldr	r2, [r3, r2, lsl #2]
+200180c0:	e51b3008 	ldr	r3, [fp, #-8]
+200180c4:	e1520003 	cmp	r2, r3
+200180c8:	8afffff2 	bhi	20018098 <safeg_init+0x98>
+       	*addr = 0;
+    } 
+
+    return 0;
+200180cc:	e3a03000 	mov	r3, #0
+}
+200180d0:	e1a00003 	mov	r0, r3
+200180d4:	e28bd000 	add	sp, fp, #0
+200180d8:	e49db004 	pop	{fp}		; (ldr fp, [sp], #4)
+200180dc:	e12fff1e 	bx	lr
+
+200180e0 <misc_init>:
+/*
+ * safeg_init, monitor_init に含まれない初期化を記述する
+ */
+int
+misc_init()
+{
+200180e0:	e52db004 	push	{fp}		; (str fp, [sp, #-4]!)
+200180e4:	e28db000 	add	fp, sp, #0
+#else
+    asm("mcr p15, 0, %0, c15, c12, 0"::"r"(0)); /* counter disabled */
+#endif /* SAFEG_KZMCA9 */
+#endif
+
+    return 0;
+200180e8:	e3a03000 	mov	r3, #0
+}
+200180ec:	e1a00003 	mov	r0, r3
+200180f0:	e28bd000 	add	sp, fp, #0
+200180f4:	e49db004 	pop	{fp}		; (ldr fp, [sp], #4)
+200180f8:	e12fff1e 	bx	lr
+
+200180fc <arm_main>:
+
+int
+arm_main()
+{
+200180fc:	e92d4800 	push	{fp, lr}
+20018100:	e28db004 	add	fp, sp, #4
+    safeg_init();
+20018104:	ebffffbd 	bl	20018000 <safeg_init>
+    misc_init();
+20018108:	ebfffff4 	bl	200180e0 <misc_init>
+    SafeGStart((unsigned long *) normal_start_address,
+2001810c:	e3a00000 	mov	r0, #0
+20018110:	e34307e0 	movt	r0, #14304	; 0x37e0
+20018114:	e3a01044 	mov	r1, #68	; 0x44
+20018118:	e3421003 	movt	r1, #8195	; 0x2003
+2001811c:	eb00013f 	bl	20018620 <SafeGStart>
+               (unsigned long *) secure_start_address);
+    return 0;
+20018120:	e3a03000 	mov	r3, #0
+}
+20018124:	e1a00003 	mov	r0, r3
+20018128:	e8bd8800 	pop	{fp, pc}
+	...
+
+20018140 <irq_handler>:
+    .text
+    .align 5
+    .global irq_handler
+irq_handler:
+    /* 発生元のワールドを判断し, Trustから来たときの対応をここでする */
+    CP15_SCR_READ sp
+20018140:	ee11df11 	mrc	15, 0, sp, cr1, cr1, {0}
+    tst sp, #SCR_BIT_0_NS
+20018144:	e31d0001 	tst	sp, #1
+    beq trusted_irq                 // trustからの場合, trusted_irqへジャンプ
+20018148:	0a000016 	beq	200181a8 <trusted_irq>
+
+    /* スタックを切り替えて, コンテキストを保存する.
+     * fdでそのまま積んでもプリデクリメントのため一番上は空く.
+     */
+    ldr sp, =_smm_stack
+2001814c:	e59fd4e0 	ldr	sp, [pc, #1248]	; 20018634 <SafeGStart+0x14>
+    ldr sp, [sp]
+20018150:	e59dd000 	ldr	sp, [sp]
+    stmfd sp!, {r0-r1}
+20018154:	e92d0003 	push	{r0, r1}
+    /*
+     * NT側のベクタテーブルの読み出し.
+     * SCRのNSビットが1の状態で読み出す必要がある.
+     * (NT側のMMUを利用したいため).
+     */
+    CP15_CONTROL_READ r0
+20018158:	ee110f10 	mrc	15, 0, r0, cr1, cr0, {0}
+    tst r0, #CP15_CONTROL_V_BIT
+2001815c:	e3100a02 	tst	r0, #8192	; 0x2000
+
+    /* high vector の場合は r0 に HIGHVEC_IRQ を読み込む */ 
+    ldrne r0, =HIGHVEC_IRQADR
+20018160:	159f04d0 	ldrne	r0, [pc, #1232]	; 20018638 <SafeGStart+0x18>
+    bne highvec
+20018164:	1a000001 	bne	20018170 <highvec>
+
+    /* high vector でない場合 */
+    CP15_VBAR_READ r0                // check non-secure irq vector address
+20018168:	ee1c0f10 	mrc	15, 0, r0, cr12, cr0, {0}
+    add r0, r0, #0x18                // IRQベクタのアドレスは vectorbase + 0x18
+2001816c:	e2800018 	add	r0, r0, #24
+
+20018170 <highvec>:
+    /*
+     * ここまではNSで実行する必要がある.
+     * SCRのNSビットを0にしておく.
+     * (モード切替を行うため). 
+     */
+    mov r1, #SCR_S
+20018170:	e3a01036 	mov	r1, #54	; 0x36
+    CP15_SCR_WRITE r1
+20018174:	ee011f11 	mcr	15, 0, r1, cr1, cr1, {0}
+     *                                 +------------------+ low address
+     *
+     * The xxx space is there because we used "!" which increments the
+     * stack pointer before. Now we will do: xxx = r0 = irq handler address
+     */
+    str r0, [sp, #8]
+20018178:	e58d0008 	str	r0, [sp, #8]
+
+    /*
+     * NT側の割込みハンドラを改変せずに済むように,
+     * lr_mon, spsr_mon を lr_irq, spsr_irq に移す
+     */
+    mov r0, lr                       //[r0] = lr_mon
+2001817c:	e1a0000e 	mov	r0, lr
+    mrs r1, spsr                     //[r1] = spsr_mon
+20018180:	e14f1000 	mrs	r1, SPSR
+    cps #CPSR_MODE_IRQ
+20018184:	f1020012 	cps	#18
+    mov lr, r0                       // lr_irq = lr_mon
+20018188:	e1a0e000 	mov	lr, r0
+    msr spsr_cxsf, r1                // spsr_irq = spsr_mon
+2001818c:	e16ff001 	msr	SPSR_fsxc, r1
+    cps #CPSR_MODE_MONITOR
+20018190:	f1020016 	cps	#22
+
+    /* NT 側の IRQ ベクタを呼び出すための準備 */
+    mov r1, #SCR_NS
+20018194:	e3a0102f 	mov	r1, #47	; 0x2f
+    CP15_SCR_WRITE r1
+20018198:	ee011f11 	mcr	15, 0, r1, cr1, cr1, {0}
+
+    /* spsr が IRQ モードとなるような設定をする */
+    mov r0, #(CPSR_MODE_IRQ | CPSR_BIT_7_I)
+2001819c:	e3a00092 	mov	r0, #146	; 0x92
+    msr spsr_fsxc, r0
+200181a0:	e16ff000 	msr	SPSR_fsxc, r0
+    perfmon_end r0, r1, r2
+    ldmfd sp!, {r2}
+#endif /* SAFEG_MEASURE_IRQ_OVH */
+
+    /* NT 側の IRQ ベクタにジャンプ */
+    ldmfd sp!, {r0-r1, pc}^
+200181a4:	e8fd8003 	ldm	sp!, {r0, r1, pc}^
+
+200181a8 <trusted_irq>:
+   /*
+    * trusted_irq の場合の処理を行う.
+    * 独自に処理を行いたい場合には, trusted_irq_handler に定義する.
+    */
+trusted_irq:
+    ldr r0, =trusted_irq_handler
+200181a8:	e59f048c 	ldr	r0, [pc, #1164]	; 2001863c <SafeGStart+0x1c>
+    ldr r0, [r0]
+200181ac:	e5900000 	ldr	r0, [r0]
+    cmp r0, #0
+200181b0:	e3500000 	cmp	r0, #0
+    movne pc, r0
+200181b4:	11a0f000 	movne	pc, r0
+    b   disaster
+200181b8:	eaffdf9f 	b	2001003c <disaster>
+200181bc:	e1a00000 	nop			; (mov r0, r0)
+
+200181c0 <fiq_handler>:
+    .align 5
+    .global fiq_handler
+fiq_handler:
+    /* 割込み発生元のワールドの判定 */
+    /* Note: r13=sp and r14=lr are banked in monitor mode */
+    CP15_SCR_READ sp
+200181c0:	ee11df11 	mrc	15, 0, sp, cr1, cr1, {0}
+    tst sp, #SCR_BIT_0_NS
+200181c4:	e31d0001 	tst	sp, #1
+    bne non_trusted_fiq
+200181c8:	1a00000a 	bne	200181f8 <non_trusted_fiq>
+
+200181cc <trusted_fiq>:
+
+    /* secureから来た場合 */
+trusted_fiq:
+    /* save trust r0-r1 registers in SafeG stack cause we need to use them */
+    ldr sp, =_smm_stack
+200181cc:	e59fd460 	ldr	sp, [pc, #1120]	; 20018634 <SafeGStart+0x14>
+    ldr sp, [sp]
+200181d0:	e59dd000 	ldr	sp, [sp]
+    stmfd sp!, {r0-r1}
+200181d4:	e92d0003 	push	{r0, r1}
+
+    /*
+     * T側の割込みハンドラを改変せずに済むように,
+     * lr_mon, spsr_mon を lr_irq, spsr_irq に移す
+     */
+    mov r0, lr
+200181d8:	e1a0000e 	mov	r0, lr
+    mrs r1, spsr
+200181dc:	e14f1000 	mrs	r1, SPSR
+    cps #CPSR_MODE_IRQ
+200181e0:	f1020012 	cps	#18
+    mov lr, r0
+200181e4:	e1a0e000 	mov	lr, r0
+    msr spsr_fsxc, r1
+200181e8:	e16ff001 	msr	SPSR_fsxc, r1
+    cps #CPSR_MODE_MONITOR
+200181ec:	f1020016 	cps	#22
+    stmfd sp!, {r2-r3, ip}
+    bl fiq_management
+    ldmfd sp!, {r2-r3, ip}
+#endif
+
+    ldmfd sp!, {r0-r1}
+200181f0:	e8bd0003 	pop	{r0, r1}
+    b fiq_exit
+200181f4:	ea00002f 	b	200182b8 <fiq_exit>
+
+200181f8 <non_trusted_fiq>:
+
+    /* non-secureから来た場合 */
+non_trusted_fiq:
+    /* SaveStateの前にSCRをsecureに変更 */
+    mov sp, #SCR_S
+200181f8:	e3a0d036 	mov	sp, #54	; 0x36
+    CP15_SCR_WRITE sp
+200181fc:	ee01df11 	mcr	15, 0, sp, cr1, cr1, {0}
+    /* 割込みで入ってきたので, 戻り先アドレスはLRから4減らした値になる */
+    sub lr, lr, #4
+20018200:	e24ee004 	sub	lr, lr, #4
+    /* save non-trust pc and spsr to monitor stack */
+#ifdef SAFEG_KZMCA9
+    /* sp <= nt_base_table[cpu id] */
+    GetCtBase nt_base_table
+#else
+    ldr sp, =NtContextBase0
+20018204:	e59fd434 	ldr	sp, [pc, #1076]	; 20018640 <SafeGStart+0x20>
+#endif /* SAFEG_KZMCA9 */
+
+    srsia #CPSR_MODE_MONITOR
+20018208:	f8cd0516 	srsia	sp, #22
+    /* save the rest of non-trust registers */
+    SaveState
+2001820c:	e94d7fff 	stmdb	sp, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, sp, lr}^
+20018210:	e28d600c 	add	r6, sp, #12
+20018214:	f1020012 	cps	#18
+20018218:	e14fc000 	mrs	ip, SPSR
+2001821c:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018220:	f1020013 	cps	#19
+20018224:	e14fc000 	mrs	ip, SPSR
+20018228:	e8a67000 	stmia	r6!, {ip, sp, lr}
+2001822c:	f1020017 	cps	#23
+20018230:	e14fc000 	mrs	ip, SPSR
+20018234:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018238:	f102001b 	cps	#27
+2001823c:	e14fc000 	mrs	ip, SPSR
+20018240:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018244:	f1020011 	cps	#17
+20018248:	e14f7000 	mrs	r7, SPSR
+2001824c:	e8867f80 	stm	r6, {r7, r8, r9, sl, fp, ip, sp, lr}
+20018250:	f1020016 	cps	#22
+     */
+#ifdef SAFEG_KZMCA9
+    /* sp <= t_base_table[cpu_id] */    
+    GetCtBase t_base_table
+#else
+    ldr sp, =TContextBase0
+20018254:	e59fd3e8 	ldr	sp, [pc, #1000]	; 20018644 <SafeGStart+0x24>
+#endif /* SAFEG_KZMCA9 */
+
+    ldmfd sp, {r0, r1} // 前回SMCを呼び出した時点の pc, cpsr.
+20018258:	e89d0003 	ldm	sp, {r0, r1}
+    add r0, r0, #4
+2001825c:	e2800004 	add	r0, r0, #4
+    str r1, [sp, #0xc]
+20018260:	e58d100c 	str	r1, [sp, #12]
+    str r0, [sp, #0x14]
+20018264:	e58d0014 	str	r0, [sp, #20]
+    LoadState
+20018268:	e28d600c 	add	r6, sp, #12
+2001826c:	f1020012 	cps	#18
+20018270:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018274:	e16ff00c 	msr	SPSR_fsxc, ip
+20018278:	f1020013 	cps	#19
+2001827c:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018280:	e16ff00c 	msr	SPSR_fsxc, ip
+20018284:	f1020017 	cps	#23
+20018288:	e8b67000 	ldm	r6!, {ip, sp, lr}
+2001828c:	e16ff00c 	msr	SPSR_fsxc, ip
+20018290:	f102001b 	cps	#27
+20018294:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018298:	e16ff00c 	msr	SPSR_fsxc, ip
+2001829c:	f1020011 	cps	#17
+200182a0:	e8967f80 	ldm	r6, {r7, r8, r9, sl, fp, ip, sp, lr}
+200182a4:	e16ff007 	msr	SPSR_fsxc, r7
+200182a8:	f1020016 	cps	#22
+200182ac:	e95d7fff 	ldmdb	sp, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, sp, lr}^
+    /* Prepare stack to store CPSR and PC before returning with rfeia*/
+    ldr sp, =_smm_stack
+200182b0:	e59fd37c 	ldr	sp, [pc, #892]	; 20018634 <SafeGStart+0x14>
+    ldr sp, [sp]
+200182b4:	e59dd000 	ldr	sp, [sp]
+
+200182b8 <fiq_exit>:
+ * secureに必ず抜けるので、ここにはSCRはsecureでくる.
+ * rfeiaで戻るためにスタックにCPSRとPCを積む.
+ */
+fiq_exit:
+    /* push CPSR = (IRQ and FIQ disabled) + IRQ mode */
+    mov lr, #(CPSR_MODE_IRQ | CPSR_BIT_6_F | CPSR_BIT_7_I)
+200182b8:	e3a0e0d2 	mov	lr, #210	; 0xd2
+    str lr, [sp, #-4]!
+200182bc:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+    /* IRQベクタのアドレスはvectorbase + 0x18 */
+    CP15_VBAR_READ lr
+200182c0:	ee1cef10 	mrc	15, 0, lr, cr12, cr0, {0}
+    add lr, lr, #0x18
+200182c4:	e28ee018 	add	lr, lr, #24
+    str lr, [sp, #-4]!
+200182c8:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+    /* IRQモードに切り替え (load CPSR + PC from stack) T側の IRQベクタにジャンプ */
+    rfeia sp
+200182cc:	f89d0a00 	rfeia	sp
+200182d0:	e1a00000 	nop			; (mov r0, r0)
+200182d4:	e1a00000 	nop			; (mov r0, r0)
+200182d8:	e1a00000 	nop			; (mov r0, r0)
+200182dc:	e1a00000 	nop			; (mov r0, r0)
+
+200182e0 <smc_handler>:
+    .text
+    .align 5
+    .global smc_handler
+smc_handler:
+    /* check if it is a Trust or Non-Trust SMC (NS bit) */
+    CP15_SCR_READ sp
+200182e0:	ee11df11 	mrc	15, 0, sp, cr1, cr1, {0}
+    tst sp, #SCR_BIT_0_NS
+200182e4:	e31d0001 	tst	sp, #1
+
+    /* if is Non-Trust SMC jump to nt_smc_handler */
+    bne nt_smc_handler
+200182e8:	1a00003f 	bne	200183ec <nt_smc_handler>
+
+200182ec <t_smc_handler>:
+    /* otherwise its a Trust SMC so first we save the Trust context */
+#ifdef SAFEG_KZMCA9
+    /* sp <= t_base_table[cpu_id] */
+    GetCtBase t_base_table
+#else
+    ldr sp, =TContextBase0
+200182ec:	e59fd350 	ldr	sp, [pc, #848]	; 20018644 <SafeGStart+0x24>
+#endif /* SAFEG_KZMCA9 */
+    srsia   #CPSR_MODE_MONITOR  // [sp_mon] = lr_mon, [sp_mon, #4] = spsr_mon
+200182f0:	f8cd0516 	srsia	sp, #22
+    SaveState                   // S-Context = Context
+200182f4:	e94d7fff 	stmdb	sp, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, sp, lr}^
+200182f8:	e28d600c 	add	r6, sp, #12
+200182fc:	f1020012 	cps	#18
+20018300:	e14fc000 	mrs	ip, SPSR
+20018304:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018308:	f1020013 	cps	#19
+2001830c:	e14fc000 	mrs	ip, SPSR
+20018310:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018314:	f1020017 	cps	#23
+20018318:	e14fc000 	mrs	ip, SPSR
+2001831c:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018320:	f102001b 	cps	#27
+20018324:	e14fc000 	mrs	ip, SPSR
+20018328:	e8a67000 	stmia	r6!, {ip, sp, lr}
+2001832c:	f1020011 	cps	#17
+20018330:	e14f7000 	mrs	r7, SPSR
+20018334:	e8867f80 	stm	r6, {r7, r8, r9, sl, fp, ip, sp, lr}
+20018338:	f1020016 	cps	#22
+
+    /* r0 has the syscall, branch to the appropriate SMC handler */
+    cmp r0, #T_SMC_REBOOT
+2001833c:	e3500001 	cmp	r0, #1
+    beq t_smc_reboot
+20018340:	0a00001a 	beq	200183b0 <t_smc_reboot>
+
+20018344 <t_smc_switch>:
+    mrc p15, 0, sp, c0, c0, 5 /* プロセッサIDの取得 */
+    and sp, sp, #0x0f    /* 下位4bitのみ有効(sp = cpu_id) */
+    ldr r5, =nt_base_table
+    ldr sp, [r5, sp, asl #2] /* sp = nt_base_table[cpu_id] */
+#else
+    ldr sp, =NtContextBase0
+20018344:	e59fd2f4 	ldr	sp, [pc, #756]	; 20018640 <SafeGStart+0x20>
+#endif /* SAFEG_KZMCA9 */
+
+
+    LoadState                   // Context = N-Context
+20018348:	e28d600c 	add	r6, sp, #12
+2001834c:	f1020012 	cps	#18
+20018350:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018354:	e16ff00c 	msr	SPSR_fsxc, ip
+20018358:	f1020013 	cps	#19
+2001835c:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018360:	e16ff00c 	msr	SPSR_fsxc, ip
+20018364:	f1020017 	cps	#23
+20018368:	e8b67000 	ldm	r6!, {ip, sp, lr}
+2001836c:	e16ff00c 	msr	SPSR_fsxc, ip
+20018370:	f102001b 	cps	#27
+20018374:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018378:	e16ff00c 	msr	SPSR_fsxc, ip
+2001837c:	f1020011 	cps	#17
+20018380:	e8967f80 	ldm	r6, {r7, r8, r9, sl, fp, ip, sp, lr}
+20018384:	e16ff007 	msr	SPSR_fsxc, r7
+20018388:	f1020016 	cps	#22
+2001838c:	e95d7fff 	ldmdb	sp, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, sp, lr}^
+
+    /* set the SCR to non-trust world settings */
+    CP15_SCR_READ lr           // cp15_SCR = lr_mon (N-World Config)
+20018390:	ee11ef11 	mrc	15, 0, lr, cr1, cr1, {0}
+    mov lr, #SCR_NS		// lr_mon = Normal SCR Config
+20018394:	e3a0e02f 	mov	lr, #47	; 0x2f
+    CP15_SCR_WRITE lr           // cp15_SCR = lr_mon (N-World Config)
+20018398:	ee01ef11 	mcr	15, 0, lr, cr1, cr1, {0}
+
+    ldr lr, =start_non_trust
+2001839c:	e59fe2a4 	ldr	lr, [pc, #676]	; 20018648 <SafeGStart+0x28>
+    movs pc, lr
+200183a0:	e1b0f00e 	movs	pc, lr
+
+200183a4 <start_non_trust>:
+
+start_non_trust:
+    /* flush the branch target address cache */
+    CP15_Flush_BTAC lr          // flush BTAC (corrupts lr_mon)
+200183a4:	e3a0e000 	mov	lr, #0
+200183a8:	ee07efd5 	mcr	15, 0, lr, cr7, cr5, {6}
+
+200183ac <t_smc_switch_exit>:
+
+t_smc_switch_exit:
+    /* switch to non-trust world */
+    rfeia   sp                  // load cpsr and pc from NtContext
+200183ac:	f89d0a00 	rfeia	sp
+
+200183b0 <t_smc_reboot>:
+    mrc p15, 0, r4, c0, c0, 5 /* プロセッサIDの取得 */
+    and r4, r4, #0x0f    /* 下位4bitのみ有効(r4 = cpu_id) */
+    ldr r5, =nt_base_table
+    ldr r4, [r5, r4, asl #2] /* r4 = nt_base_table[cpu_id] */
+#else
+    ldr r4, =NtContextBase0
+200183b0:	e59f4288 	ldr	r4, [pc, #648]	; 20018640 <SafeGStart+0x20>
+#endif /* SAFEG_KZMCA9 */
+    ldr r2, =NORMAL_CPSR_INIT_VALUE
+200183b4:	e59f2290 	ldr	r2, [pc, #656]	; 2001864c <SafeGStart+0x2c>
+    stmea r4, {r1, r2}
+200183b8:	e8840006 	stm	r4, {r1, r2}
+
+    /* 直接 linux を boot するためのレジスタ設定 */
+    mov r1, #0
+200183bc:	e3a01000 	mov	r1, #0
+    mov r2, #0x5e0
+200183c0:	e3a02e5e 	mov	r2, #1504	; 0x5e0
+    mov r3, #0x100
+200183c4:	e3a03c01 	mov	r3, #256	; 0x100
+    mrc p15, 0, r4, c0, c0, 5 /* プロセッサIDの取得 */
+    and r4, r4, #0x0f    /* 下位4bitのみ有効(r4 = cpu_id) */
+    ldr r5, =nt_area_table
+    ldr r4, [r5, r4, asl #2] /* sp = nt_area_table[cpu_id] */
+#else
+    ldr r4, =NtContextSavedArea0
+200183c8:	e59f4280 	ldr	r4, [pc, #640]	; 20018650 <SafeGStart+0x30>
+#endif /* SAFEG_KZMCA9 */
+    stmea r4, {r1-r3}
+200183cc:	e884000e 	stm	r4, {r1, r2, r3}
+
+    /* CP15 CTRL レジスタを操作する前に Non-Secure にしておく必要がある. */
+    mov     r2, #SCR_NS
+200183d0:	e3a0202f 	mov	r2, #47	; 0x2f
+    CP15_SCR_WRITE  r2
+200183d4:	ee012f11 	mcr	15, 0, r2, cr1, cr1, {0}
+
+    /* MMU と キャッシュをDISABLEにする */
+    ldr r1, =NORMAL_CP15_CTRL_INIT_VALUE
+200183d8:	e59f1274 	ldr	r1, [pc, #628]	; 20018654 <SafeGStart+0x34>
+    mcr p15, 0, r1, c1, c0, 0
+200183dc:	ee011f10 	mcr	15, 0, r1, cr1, cr0, {0}
+
+    /* 操作が終わったら Secureに戻す. */
+    mov     r2, #SCR_S
+200183e0:	e3a02036 	mov	r2, #54	; 0x36
+    CP15_SCR_WRITE  r2
+200183e4:	ee012f11 	mcr	15, 0, r2, cr1, cr1, {0}
+    b t_smc_switch
+200183e8:	eaffffd5 	b	20018344 <t_smc_switch>
+
+200183ec <nt_smc_handler>:
+
+nt_smc_handler:
+    /* switch to NT (and pass arguments) */
+    cmp r0, #NT_SMC_SWITCH
+200183ec:	e3500000 	cmp	r0, #0
+    beq nt_smc_switch
+200183f0:	0a000006 	beq	20018410 <nt_smc_switch>
+    /* emulate a software interrupt in Trust world */
+    cmp r0, #NT_SMC_SOFTIRQ
+200183f4:	e3500002 	cmp	r0, #2
+    addeq lr, lr, #4
+200183f8:	028ee004 	addeq	lr, lr, #4
+    beq non_trusted_fiq
+200183fc:	0affff7d 	beq	200181f8 <non_trusted_fiq>
+    /* invalidate the cache */
+    cmp r0, #NT_SMC_INV_CACHE
+20018400:	e3500001 	cmp	r0, #1
+    beq nt_smc_cache
+20018404:	0a000050 	beq	2001854c <nt_smc_cache>
+
+    /* if SMC number is not supported go back to nt with error (TODO: test) */
+    mov r1, #NT_SMC_SWITCH_ERR
+20018408:	e3a01001 	mov	r1, #1
+    b nt_smc_return_to_nt
+2001840c:	ea000060 	b	20018594 <nt_smc_return_to_nt>
+
+20018410 <nt_smc_switch>:
+
+nt_smc_switch:
+    /* go to secure world, to save NT state in secure memory */
+    mov     sp, #SCR_S          // lr_mon = Secure World SCR config
+20018410:	e3a0d036 	mov	sp, #54	; 0x36
+    CP15_SCR_WRITE  sp          // cp15_SCR = lr_mon (S-World Config)
+20018414:	ee01df11 	mcr	15, 0, sp, cr1, cr1, {0}
+    mrc p15, 0, sp, c0, c0, 5 /* プロセッサIDの取得 */
+    and sp, sp, #0x0f    /* 下位4bitのみ有効(r4 = cpu_id) */
+    ldr r5, =nt_base_table
+    ldr sp, [r5, sp, asl #2] /* sp = nt_base_table[cpu_id] */    
+#else
+    ldr sp, =NtContextBase0
+20018418:	e59fd220 	ldr	sp, [pc, #544]	; 20018640 <SafeGStart+0x20>
+#endif /* SAFEG_KZMCA9 */
+    srsia #CPSR_MODE_MONITOR
+2001841c:	f8cd0516 	srsia	sp, #22
+    SaveState                   // N-Context = Context
+20018420:	e94d7fff 	stmdb	sp, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, sp, lr}^
+20018424:	e28d600c 	add	r6, sp, #12
+20018428:	f1020012 	cps	#18
+2001842c:	e14fc000 	mrs	ip, SPSR
+20018430:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018434:	f1020013 	cps	#19
+20018438:	e14fc000 	mrs	ip, SPSR
+2001843c:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018440:	f1020017 	cps	#23
+20018444:	e14fc000 	mrs	ip, SPSR
+20018448:	e8a67000 	stmia	r6!, {ip, sp, lr}
+2001844c:	f102001b 	cps	#27
+20018450:	e14fc000 	mrs	ip, SPSR
+20018454:	e8a67000 	stmia	r6!, {ip, sp, lr}
+20018458:	f1020011 	cps	#17
+2001845c:	e14f7000 	mrs	r7, SPSR
+20018460:	e8867f80 	stm	r6, {r7, r8, r9, sl, fp, ip, sp, lr}
+20018464:	f1020016 	cps	#22
+
+    cmp r1, #T_SMC_SWITCH_HANDLER
+20018468:	e3510002 	cmp	r1, #2
+    beq nt_smc_switch_raise_handler
+2001846c:	0a000017 	beq	200184d0 <nt_smc_switch_raise_handler>
+    mrc p15, 0, r6, c0, c0, 5 /* プロセッサIDの取得 */
+    and r6, r6, #0x0f    /* 下位4bitのみ有効(r4 = cpu_id) */
+    ldr r5, =t_area_table
+    ldr r6, [r5, r6, asl #2] /* sp = t_area_table[cpu_id] */  
+#else
+    ldr r6, =TContextSavedArea0  // r6 = TContextSavedArea
+20018470:	e59f61e0 	ldr	r6, [pc, #480]	; 20018658 <SafeGStart+0x38>
+#endif /* SAFEG_KZMCA9 */
+    ldr r6, [r6, #4]            // r6 = *(S_USR_R1) = ret_args
+20018474:	e5966004 	ldr	r6, [r6, #4]
+    str r1, [r6, #0]            // ret_args->arg0 = r1
+20018478:	e5861000 	str	r1, [r6]
+    str r2, [r6, #4]            // ret_args->arg1 = r2
+2001847c:	e5862004 	str	r2, [r6, #4]
+
+20018480 <nt_smc_switch_exit>:
+    mrc p15, 0, sp, c0, c0, 5 /* プロセッサIDの取得 */
+    and sp, sp, #0x0f    /* 下位4bitのみ有効(r4 = cpu_id) */
+    ldr r5, =t_base_table
+    ldr sp, [r5, sp, asl #2] /* sp = t_base_table[cpu_id] */  
+#else
+    ldr sp, =TContextBase0
+20018480:	e59fd1bc 	ldr	sp, [pc, #444]	; 20018644 <SafeGStart+0x24>
+#endif /* SAFEG_KZMCA9 */
+    LoadState                   // Context = S-Context
+20018484:	e28d600c 	add	r6, sp, #12
+20018488:	f1020012 	cps	#18
+2001848c:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018490:	e16ff00c 	msr	SPSR_fsxc, ip
+20018494:	f1020013 	cps	#19
+20018498:	e8b67000 	ldm	r6!, {ip, sp, lr}
+2001849c:	e16ff00c 	msr	SPSR_fsxc, ip
+200184a0:	f1020017 	cps	#23
+200184a4:	e8b67000 	ldm	r6!, {ip, sp, lr}
+200184a8:	e16ff00c 	msr	SPSR_fsxc, ip
+200184ac:	f102001b 	cps	#27
+200184b0:	e8b67000 	ldm	r6!, {ip, sp, lr}
+200184b4:	e16ff00c 	msr	SPSR_fsxc, ip
+200184b8:	f1020011 	cps	#17
+200184bc:	e8967f80 	ldm	r6, {r7, r8, r9, sl, fp, ip, sp, lr}
+200184c0:	e16ff007 	msr	SPSR_fsxc, r7
+200184c4:	f1020016 	cps	#22
+200184c8:	e95d7fff 	ldmdb	sp, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, sp, lr}^
+    rfeia   sp                  // switch to the trust-world os
+200184cc:	f89d0a00 	rfeia	sp
+
+200184d0 <nt_smc_switch_raise_handler>:
+    mrc p15, 0, sp, c0, c0, 5 /* プロセッサIDの取得 */
+    and sp, sp, #0x0f    /* 下位4bitのみ有効(r4 = cpu_id) */
+    ldr r5, =t_base_table
+    ldr sp, [r5, sp, asl #2] /* sp = t_base_table[cpu_id] */  
+#else
+    ldr sp, =TContextBase0
+200184d0:	e59fd16c 	ldr	sp, [pc, #364]	; 20018644 <SafeGStart+0x24>
+#endif /* SAFEG_KZMCA9 */
+    ldmfd sp, {r0, r1} // 前回SMCを呼び出した時点の pc, cpsr.
+200184d4:	e89d0003 	ldm	sp, {r0, r1}
+    add r0, r0, #4
+200184d8:	e2800004 	add	r0, r0, #4
+    str r1, [sp, #0xc]
+200184dc:	e58d100c 	str	r1, [sp, #12]
+    str r0, [sp, #0x14]
+200184e0:	e58d0014 	str	r0, [sp, #20]
+    LoadState
+200184e4:	e28d600c 	add	r6, sp, #12
+200184e8:	f1020012 	cps	#18
+200184ec:	e8b67000 	ldm	r6!, {ip, sp, lr}
+200184f0:	e16ff00c 	msr	SPSR_fsxc, ip
+200184f4:	f1020013 	cps	#19
+200184f8:	e8b67000 	ldm	r6!, {ip, sp, lr}
+200184fc:	e16ff00c 	msr	SPSR_fsxc, ip
+20018500:	f1020017 	cps	#23
+20018504:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018508:	e16ff00c 	msr	SPSR_fsxc, ip
+2001850c:	f102001b 	cps	#27
+20018510:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018514:	e16ff00c 	msr	SPSR_fsxc, ip
+20018518:	f1020011 	cps	#17
+2001851c:	e8967f80 	ldm	r6, {r7, r8, r9, sl, fp, ip, sp, lr}
+20018520:	e16ff007 	msr	SPSR_fsxc, r7
+20018524:	f1020016 	cps	#22
+20018528:	e95d7fff 	ldmdb	sp, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, sp, lr}^
+    ldr sp, =_smm_stack
+2001852c:	e59fd100 	ldr	sp, [pc, #256]	; 20018634 <SafeGStart+0x14>
+    ldr sp, [sp]
+20018530:	e59dd000 	ldr	sp, [sp]
+    mov lr, #(CPSR_MODE_IRQ | CPSR_BIT_6_F | CPSR_BIT_7_I)
+20018534:	e3a0e0d2 	mov	lr, #210	; 0xd2
+    str lr, [sp, #-4]!
+20018538:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+    /* SAFEGベクタのアドレスはvectorbase + 0x20 */
+    CP15_VBAR_READ lr
+2001853c:	ee1cef10 	mrc	15, 0, lr, cr12, cr0, {0}
+    add lr, lr, #0x20
+20018540:	e28ee020 	add	lr, lr, #32
+    str lr, [sp, #-4]!
+20018544:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+    /* IRQ モードに切り替え, T 側の IRQ ベクタにジャンプ */
+    rfeia sp
+20018548:	f89d0a00 	rfeia	sp
+
+2001854c <nt_smc_cache>:
+
+nt_smc_cache:
+    /* check arg0 in r1 to know what to invalidate */
+    cmp r1, #NT_SMC_INV_CACHE_D
+2001854c:	e3510002 	cmp	r1, #2
+    beq nt_smc_cache_invalidate_dcache
+20018550:	0a000005 	beq	2001856c <nt_smc_cache_invalidate_dcache>
+    cmp r1, #NT_SMC_INV_CACHE_I
+20018554:	e3510003 	cmp	r1, #3
+    beq nt_smc_cache_invalidate_icache
+20018558:	0a000006 	beq	20018578 <nt_smc_cache_invalidate_icache>
+    cmp r1, #NT_SMC_INV_CACHE_ALL
+2001855c:	e3510004 	cmp	r1, #4
+    beq nt_smc_cache_invalidate_allcache
+20018560:	0a000007 	beq	20018584 <nt_smc_cache_invalidate_allcache>
+
+    /* if argument number is not supported return with error (TODO: test)*/
+    mov r1, #NT_SMC_INV_CACHE_ERR
+20018564:	e3a01001 	mov	r1, #1
+    b nt_smc_return_to_nt
+20018568:	ea000009 	b	20018594 <nt_smc_return_to_nt>
+
+2001856c <nt_smc_cache_invalidate_dcache>:
+
+nt_smc_cache_invalidate_dcache:
+    /* invalidate the entire data cache */
+    mov r0, #0
+2001856c:	e3a00000 	mov	r0, #0
+    mcr p15, 0, r0, c7, c6, 0
+20018570:	ee070f16 	mcr	15, 0, r0, cr7, cr6, {0}
+    b nt_smc_return_to_nt
+20018574:	ea000006 	b	20018594 <nt_smc_return_to_nt>
+
+20018578 <nt_smc_cache_invalidate_icache>:
+
+nt_smc_cache_invalidate_icache:
+    /* invalidate the entire instruction cache */
+    mov r0, #0
+20018578:	e3a00000 	mov	r0, #0
+    mcr p15, 0, r0, c7, c5, 0
+2001857c:	ee070f15 	mcr	15, 0, r0, cr7, cr5, {0}
+    b nt_smc_return_to_nt
+20018580:	ea000003 	b	20018594 <nt_smc_return_to_nt>
+
+20018584 <nt_smc_cache_invalidate_allcache>:
+
+nt_smc_cache_invalidate_allcache:
+    /* invalidate both the data and the instruction cache */
+    mov r0, #0
+20018584:	e3a00000 	mov	r0, #0
+    mcr p15, 0, r0, c7, c14, 0
+20018588:	ee070f1e 	mcr	15, 0, r0, cr7, cr14, {0}
+    mcr p15, 0, r0, c7, c5, 0
+2001858c:	ee070f15 	mcr	15, 0, r0, cr7, cr5, {0}
+    b nt_smc_return_to_nt
+20018590:	eaffffff 	b	20018594 <nt_smc_return_to_nt>
+
+20018594 <nt_smc_return_to_nt>:
+
+nt_smc_return_to_nt:
+    movs pc, lr
+20018594:	e1b0f00e 	movs	pc, lr
+20018598:	e1a00000 	nop			; (mov r0, r0)
+2001859c:	e1a00000 	nop			; (mov r0, r0)
+
+200185a0 <data_abort_handler>:
+    .text
+    .align 5
+    .global data_abort_handler
+data_abort_handler:
+    /* LoadStateを呼び出す前に, Secureにしておく必要がある. */
+    mov     sp, #SCR_S                 // lr_mon = Secure World SCR config
+200185a0:	e3a0d036 	mov	sp, #54	; 0x36
+    CP15_SCR_WRITE  sp                 // cp15_SCR = lr_mon (S-World Config)
+200185a4:	ee01df11 	mcr	15, 0, sp, cr1, cr1, {0}
+    mrc p15, 0, sp, c0, c0, 5 /* プロセッサIDの取得 */
+    and sp, sp, #0x0f    /* 下位4bitのみ有効(r4 = cpu_id) */
+    ldr r5, =t_base_table
+    ldr sp, [r5, sp, asl #2] /* sp = t_base_table[cpu_id] */ 
+#else
+    ldr sp, =TContextBase0
+200185a8:	e59fd094 	ldr	sp, [pc, #148]	; 20018644 <SafeGStart+0x24>
+#endif /* SAFEG_KZMCA9 */
+    ldmia sp, {r0, r1}
+200185ac:	e89d0003 	ldm	sp, {r0, r1}
+    cmp sp, #2
+    ldreq sp, =S_SVC_LR_CORE2
+    cmp sp, #3
+    ldreq sp, =S_SVC_LR_CORE3
+#else
+    ldr sp, =S_SVC_LR_CORE0    
+200185b0:	e59fd0a4 	ldr	sp, [pc, #164]	; 2001865c <SafeGStart+0x3c>
+#endif
+    str r0, [sp]
+200185b4:	e58d0000 	str	r0, [sp]
+    str r1, [sp, #-8]
+200185b8:	e50d1008 	str	r1, [sp, #-8]
+    mrc p15, 0, sp, c0, c0, 5 /* プロセッサIDの取得 */
+    and sp, sp, #0x0f    /* 下位4bitのみ有効(r4 = cpu_id) */
+    ldr r5, =t_base_table
+    ldr sp, [r5, sp, asl #2] /* sp = t_base_table[cpu_id] */      
+#else
+    ldr sp, =TContextBase0
+200185bc:	e59fd080 	ldr	sp, [pc, #128]	; 20018644 <SafeGStart+0x24>
+#endif /* SAFEG_KZMCA9 */
+    /* SWI ベクタのアドレスはvectorbase + 0x8 */
+    CP15_VBAR_READ r0
+200185c0:	ee1c0f10 	mrc	15, 0, r0, cr12, cr0, {0}
+    add r0, r0, #0x8
+200185c4:	e2800008 	add	r0, r0, #8
+    mov r1, #(CPSR_MODE_SVC | CPSR_BIT_7_I)
+200185c8:	e3a01093 	mov	r1, #147	; 0x93
+    stmia sp, {r0, r1}
+200185cc:	e88d0003 	stm	sp, {r0, r1}
+
+    /*
+     * Tコンテキストを復帰．
+     */
+    LoadState
+200185d0:	e28d600c 	add	r6, sp, #12
+200185d4:	f1020012 	cps	#18
+200185d8:	e8b67000 	ldm	r6!, {ip, sp, lr}
+200185dc:	e16ff00c 	msr	SPSR_fsxc, ip
+200185e0:	f1020013 	cps	#19
+200185e4:	e8b67000 	ldm	r6!, {ip, sp, lr}
+200185e8:	e16ff00c 	msr	SPSR_fsxc, ip
+200185ec:	f1020017 	cps	#23
+200185f0:	e8b67000 	ldm	r6!, {ip, sp, lr}
+200185f4:	e16ff00c 	msr	SPSR_fsxc, ip
+200185f8:	f102001b 	cps	#27
+200185fc:	e8b67000 	ldm	r6!, {ip, sp, lr}
+20018600:	e16ff00c 	msr	SPSR_fsxc, ip
+20018604:	f1020011 	cps	#17
+20018608:	e8967f80 	ldm	r6, {r7, r8, r9, sl, fp, ip, sp, lr}
+2001860c:	e16ff007 	msr	SPSR_fsxc, r7
+20018610:	f1020016 	cps	#22
+20018614:	e95d7fff 	ldmdb	sp, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, sp, lr}^
+
+    /* SVC モードに切り替え, T 側の SWI ベクタにジャンプ */
+    rfeia sp
+20018618:	f89d0a00 	rfeia	sp
+2001861c:	e1a00000 	nop			; (mov r0, r0)
+
+20018620 <SafeGStart>:
+    mrc p15, 0, r2, c0, c0, 5 /* プロセッサIDの取得 */
+    and r2, r2, #0x0f    /* 下位4bitのみ有効(r2 = cpu_id) */
+    ldr r5, =nt_base_table
+    ldr r2, [r5, r2, asl #2] /* r2 = nt_base_table[cpu_id] */  
+#else
+    ldr r2, =NtContextBase0
+20018620:	e59f2018 	ldr	r2, [pc, #24]	; 20018640 <SafeGStart+0x20>
+#endif /* SAFEG_KZMCA9 */
+    ldr r3, =NORMAL_CPSR_INIT_VALUE
+20018624:	e59f3020 	ldr	r3, [pc, #32]	; 2001864c <SafeGStart+0x2c>
+    stmea r2, {r0, r3}
+20018628:	e8820009 	stm	r2, {r0, r3}
+
+    /* Trust側リセット時のモードに変更する */
+    cps #CPSR_MODE_SVC
+2001862c:	f1020013 	cps	#19
+
+    /* Trust側のスタートアドレスにジャンプする */
+    mov pc, r1
+20018630:	e1a0f001 	mov	pc, r1
+20018634:	20018708 	.word	0x20018708
+20018638:	ffff0018 	.word	0xffff0018
+2001863c:	00000000 	.word	0x00000000
+20018640:	2001885c 	.word	0x2001885c
+20018644:	200188f4 	.word	0x200188f4
+20018648:	200183a4 	.word	0x200183a4
+2001864c:	00000193 	.word	0x00000193
+20018650:	20018820 	.word	0x20018820
+20018654:	00050078 	.word	0x00050078
+20018658:	200188b8 	.word	0x200188b8
+2001865c:	20018914 	.word	0x20018914
+
+20018660 <_start>:
+    .text
+    .balign 2
+    .globl _start
+_start:
+    /* svc �⡼�ɤǳ��Ϥ��뤬, SafeG�ϥ�˥��⡼�ɤ�ư������Τ��ѹ� */
+    cps #CPSR_MODE_MONITOR
+20018660:	f1020016 	cps	#22
+    ldr sp, =_smm_stack             // safeg_start.c��ư����뤿���, �����å�����
+20018664:	e59fd030 	ldr	sp, [pc, #48]	; 2001869c <l_end+0x4>
+    ldr sp, [sp]
+20018668:	e59dd000 	ldr	sp, [sp]
+    mov r0, #SCR_S                 // secure���� FW�ӥåȤ�0������
+2001866c:	e3a00036 	mov	r0, #54	; 0x36
+    CP15_SCR_WRITE r0
+20018670:	ee010f11 	mcr	15, 0, r0, cr1, cr1, {0}
+     * hardware_init_hook�θƤӽФ� ��0�Ǥʤ�����
+     *
+     * �������åȥϡ��ɥ������˰�¸����ɬ�פʽ����������������
+     * �ϡ�hardware_init_hook �Ȥ����ؿ����Ѱդ���
+     */
+    ldr   r0, =hardware_init_hook
+20018674:	e59f0024 	ldr	r0, [pc, #36]	; 200186a0 <l_end+0x8>
+    cmp   r0, #0x00
+20018678:	e3500000 	cmp	r0, #0
+    movne lr, pc
+2001867c:	11a0e00f 	movne	lr, pc
+    movne pc, r0 
+20018680:	11a0f000 	movne	pc, r0
+
+20018684 <start_5>:
+     *  ���եȥ������Ķ����ä˥饤�֥��ˤ˰�¸����ɬ�פʽ������
+     *  ����������ϡ�software_init_hook �Ȥ����ؿ����Ѱդ����
+     *  �褤��
+     */
+start_5:
+    ldr   r0, =software_init_hook
+20018684:	e59f0018 	ldr	r0, [pc, #24]	; 200186a4 <l_end+0xc>
+    cmp   r0, #0x00
+20018688:	e3500000 	cmp	r0, #0
+    movne lr, pc
+2001868c:	11a0e00f 	movne	lr, pc
+    movne pc, r0 
+20018690:	11a0f000 	movne	pc, r0
+
+20018694 <start_6>:
+    
+    /*
+     * �����ͥ��ư����
+     */
+start_6:        
+    bl arm_main
+20018694:	ebfffe98 	bl	200180fc <arm_main>
+
+20018698 <l_end>:
+l_end:
+    b   l_end
+20018698:	eafffffe 	b	20018698 <l_end>
+2001869c:	20018708 	.word	0x20018708
+	...

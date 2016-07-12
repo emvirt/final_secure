@@ -1,0 +1,6 @@
+cd ucos_ii_RTGP
+make clean
+make
+cd ..
+make clean
+make

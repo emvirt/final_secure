@@ -1,0 +1,156 @@
+#
+#  SafeG Global Makefile
+#
+# Usage:
+#    make OBJ=obj_safeg_xxxx [VARIABLE=value] [clean] [showtargets] [showsupport]
+#
+#    VARIABLES:
+#        [TOOLPREFIX=prefix-of-arm-toolchain]
+#        [BINDIR=path-to-export-safeg-binaries]
+#        [BUILD=debug or optimized]
+#        [TRUST=asp or fmp]
+#        [NONTRUST=linux or asp or fmp]
+#        [BOARD=BOARDNAME]
+
+SAFEG_KZMCA9_BINDIR     = ./out
+SAFEG_KZMCA9_BUILD      = debug
+SAFEG_KZMCA9_TRUST   = autosar20_wobsw
+SAFEG_KZMCA9_TRUST_ELF  = autosar20.elf
+SAFEG_KZMCA9_TRUST_BIN  = autosar20.bin
+SAFEG_KZMCA9_TRUST_HEADER  = RTE/inc
+SAFEG_KZMCA9_NONTRUST   = ../bootloader/quickboot
+SAFEG_KZMCA9_NONTRUST_ELF  = cop_stage
+SAFEG_KZMCA9_NONTRUST_BIN  = /_out/debug_p1852/images/quickboot1.bin
+SAFEG_KZMCA9_NONTRUST_ELF2  = cpu_stage
+SAFEG_KZMCA9_NONTRUST_BIN2  = /_out/debug_p1852/images/cpu_stage2.bin
+SAFEG_KZMCA9_NONTRUST_OS   = ../kernel
+SAFEG_KZMCA9_NONTRUST_OS_ELF  = vmlinux
+SAFEG_KZMCA9_NONTRUST_OS_BIN  = arch/arm/boot/zImage
+#SAFEG_KZMCA9_TOOLPREFIX = arm-none-eabi-
+SAFEG_KZMCA9_TOOLPREFIX = /opt/freescale/usr/local/gcc-4.6.2-glibc-2.13-linaro-multilib-2011.12/fsl-linaro-toolchain/bin/arm-fsl-linux-gnueabi-
+SAFEG_KZMCA9_UBOOTBIN   = res/prebuilt/board_kzmca9/prebuilt-kzmca9-nt-uboot
+SAFEG_KZMCA9_CPU        = cortex-a9
+
+#BOARD      ?= PB1176
+BOARD      ?= KZMCA9
+BINDIR     ?= ${SAFEG_${BOARD}_BINDIR}
+BUILD      ?= ${SAFEG_${BOARD}_BUILD}
+TRUST      ?= ${SAFEG_${BOARD}_TRUST}
+TRUST_ELF  ?= ${SAFEG_${BOARD}_TRUST_ELF}
+TRUST_BIN  ?= ${SAFEG_${BOARD}_TRUST_BIN}
+TRUST_HEADER  ?= ${SAFEG_${BOARD}_TRUST_HEADER}
+NONTRUST   ?= ${SAFEG_${BOARD}_NONTRUST}
+NONTRUST_ELF  ?= ${SAFEG_${BOARD}_NONTRUST_ELF}
+NONTRUST_BIN  ?= ${SAFEG_${BOARD}_NONTRUST_BIN}
+NONTRUST_ELF2  ?= ${SAFEG_${BOARD}_NONTRUST_ELF2}
+NONTRUST_BIN2  ?= ${SAFEG_${BOARD}_NONTRUST_BIN2}
+NONTRUST_OS  ?= ${SAFEG_${BOARD}_NONTRUST_OS}
+NONTRUST_OS_BIN  ?= ${SAFEG_${BOARD}_NONTRUST_OS_BIN}
+NONTRUST_OS_ELF  ?= ${SAFEG_${BOARD}_NONTRUST_OS_ELF}
+TOOLPREFIX ?= ${SAFEG_${BOARD}_TOOLPREFIX}
+UBOOTBIN   ?= ${SAFEG_${BOARD}_UBOOTBIN}
+
+BIN     = $(BINDIR)/trust.elf $(BINDIR)/non-trust.elf $(BINDIR)/safeg.elf
+
+CC      = $(TOOLPREFIX)gcc
+CXX     = $(TOOLPREFIX)cpp
+AS      = $(TOOLPREFIX)as
+LD      = $(TOOLPREFIX)ld
+OBJCOPY = $(TOOLPREFIX)objcopy
+READELF = $(TOOLPREFIX)readelf
+NM      = $(TOOLPREFIX)nm
+
+CPU      = ${SAFEG_${BOARD}_CPU}
+OBJFLAGS = -O srec --srec-forceS3 --srec-len 32
+CFLAGS   = -DSAFEG_${BOARD} -mcpu=$(CPU) -msoft-float -Wall -Wextra -Werror -g -I .
+ASFLAGS  = -mfloat-abi=soft --fatal-warnings
+LDFLAGS  = -mcpu=$(CPU) -msoft-float -static -nostdlib -lgcc
+
+ifeq ($(BUILD),debug)
+	CFLAGS  += -g -O0
+	ASFLAGS += -g
+else
+	CFLAGS += -O2
+endif
+
+export CC CXX AS OBJCOPY OBJFLAGS CFLAGS LDFLAGS ASFLAGS CPU
+
+.PHONY: help all clean
+
+all: $(BIN) $(BINDIR)/safeg.sym
+
+$(BINDIR)/safeg.elf: safeg/entry.h
+	cd safeg; $(MAKE)
+ifneq ($(BINDIR),safeg)
+	mv safeg/safeg.elf $(BINDIR)/safeg.elf
+	mv safeg/safeg.bin $(BINDIR)/safeg.bin
+endif
+
+$(BINDIR)/trust.elf: $(TRUST)/$(TRUST_HEADER)/safeg.h
+	(cd $(TRUST);$(MAKE))
+	cp $(TRUST)/$(TRUST_ELF) $(BINDIR)/trust.elf
+	cp $(TRUST)/$(TRUST_BIN) $(BINDIR)/trust.bin
+
+$(BINDIR)/non-trust.elf:
+	(cd $(NONTRUST); unset CC CXX AS OBJCOPY OBJFLAGS CFLAGS LDFLAGS ASFLAGS CPU; ./gogo)
+	cp $(NONTRUST)/$(NONTRUST_ELF) $(BINDIR)/non-trust.elf
+	cp $(NONTRUST)/$(NONTRUST_BIN) $(BINDIR)/non-trust.bin
+
+ifneq ($(NONTRUST_ELF2),)
+	cp $(NONTRUST)/$(NONTRUST_ELF2) $(BINDIR)/non-trust2.elf
+endif
+ifneq ($(NONTRUST_BIN2),)
+	cp $(NONTRUST)/$(NONTRUST_BIN2) $(BINDIR)/non-trust2.bin
+endif
+
+$(BINDIR)/non-trust-os.elf:
+	(cd $(NONTRUST_OS); unset CC CXX AS OBJCOPY OBJFLAGS CFLAGS LDFLAGS ASFLAGS CPU; ./gogo)
+	cp $(NONTRUST_OS)/$(NONTRUST_OS_ELF) $(BINDIR)/non-trust-os.elf
+	cp $(NONTRUST_OS)/$(NONTRUST_OS_BIN) $(BINDIR)/non-trust-os.bin
+
+$(BINDIR)/safeg.sym: $(BIN)
+	$(NM) $(BINDIR)/safeg.elf > $(BINDIR)/safeg.sym
+	$(NM) $(BINDIR)/trust.elf >> $(BINDIR)/safeg.sym
+	$(NM) $(BINDIR)/non-trust.elf >> $(BINDIR)/safeg.sym
+
+safeg/entry.h: $(BINDIR)/trust.elf
+	$(READELF) -h $(BINDIR)/trust.elf | grep "Entry point address" | gawk '{print "#define secure_start_address\t"$$4}' > safeg/entry.h
+
+$(TRUST)/$(TRUST_HEADER)/safeg.h: $(BINDIR)/non-trust-os.elf
+	$(READELF) -s $(BINDIR)/non-trust-os.elf | grep "tegra_secondary_startup" | gawk '{print "#define secondary_startup_address\t(0x"$$2"-0x30000000)"}' > $(TRUST)/$(TRUST_HEADER)/safeg.h
+
+help:
+	@exec echo -e "\n\tUsage:";
+	@exec echo -e "\t   make [VARIABLE=value] [clean] [showsupport]";
+	@exec echo -e "\t   VARIABLES:";
+	@exec echo -e "\t       [TOOLPREFIX=prefix-of-arm-toolchain]";
+	@exec echo -e "\t       [BINDIR=path-to-export-safeg-binaries]";
+	@exec echo -e "\t       [BUILD=debug or optimized]";
+	@exec echo -e "\t       [TRUST=asp or fmp]";
+	@exec echo -e "\t       [NONTRUST=linux or asp]";
+	@exec echo -e "\t       [BOARD=BOARDNAME (see make showsupport)]\n";
+
+showsupport:
+	@exec echo -e "\n\tSupported boards:";
+	@exec echo -e "\t   Nvidia Tegra3 board (make BOARD=KZMCA9)";
+	@exec echo -e "\t       Trust:";
+	@exec echo -e "\t           Autosar 2.0";
+	@exec echo -e "\t       Non-Trust:";
+	@exec echo -e "\t           Linux 2.6.36.3";
+
+clean:
+	$(RM) -f $(BINDIR)/*.elf $(BINDIR)/safeg.sym
+	@$(MAKE) -C safeg/ clean;
+	@find \( -name '*~*' \) -print -delete
+
+ifneq ($(TRUST),)
+	@$(MAKE) -C $(TRUST) clean;
+endif
+
+ifneq ($(NONTRUST),)
+	@$(MAKE) -C $(NONTRUST) clean;
+endif
+
+ifneq ($(NONTRUST_OS),)
+	@$(MAKE) -C $(NONTRUST_OS) clean;
+endif

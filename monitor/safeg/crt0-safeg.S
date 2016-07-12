@@ -1,0 +1,182 @@
+/*
+ *  TOPPERS/SafeG Dual-OS monitor
+ *      Toyohashi Open Platform for Embedded Real-Time Systems/
+ *      Safety Gate Dual-OS monitor
+ *
+ *  Copyright (C) 2009-2011 by Embedded and Real-Time Systems Laboratory
+ *     Graduate School of Information Science, Nagoya University, JAPAN
+ *
+ *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
+ *  ア（本ソフトウェアを改変したものを含む．以下同じ）を使用・複製・改
+ *  変・再配布（以下，利用と呼ぶ）することを無償で許諾する．
+ *  (1) 本ソフトウェアをソースコードの形で利用する場合には，上記の著作
+ *      権表示，この利用条件および下記の無保証規定が，そのままの形でソー
+ *      スコード中に含まれていること．
+ *  (2) 本ソフトウェアを，ライブラリ形式など，他のソフトウェア開発に使
+ *      用できる形で再配布する場合には，再配布に伴うドキュメント（利用
+ *      者マニュアルなど）に，上記の著作権表示，この利用条件および下記
+ *      の無保証規定を掲載すること．
+ *  (3) 本ソフトウェアを，機器に組み込むなど，他のソフトウェア開発に使
+ *      用できない形で再配布する場合には，次のいずれかの条件を満たすこ
+ *      と．
+ *    (a) 再配布に伴うドキュメント（利用者マニュアルなど）に，上記の著
+ *        作権表示，この利用条件および下記の無保証規定を掲載すること．
+ *    (b) 再配布の形態を，別に定める方法によって，TOPPERSプロジェクトに
+ *        報告すること．
+ *  (4) 本ソフトウェアの利用により直接的または間接的に生じるいかなる損
+ *      害からも，上記著作権者およびTOPPERSプロジェクトを免責すること．
+ *      また，本ソフトウェアのユーザまたはエンドユーザからのいかなる理
+ *      由に基づく請求からも，上記著作権者およびTOPPERSプロジェクトを
+ *      免責すること．
+ *
+ *  本ソフトウェアは，無保証で提供されているものである．上記著作権者お
+ *  よびTOPPERSプロジェクトは，本ソフトウェアに関して，特定の使用目的
+ *  に対する適合性も含めて，いかなる保証も行わない．また，本ソフトウェ
+ *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
+ *  の責任を負わない．
+ *
+ */
+#include "arm.h"
+    .text
+    .balign 2
+    .globl _start
+
+_start:
+    /* svc モードで開始するが, SafeGはモニタモードで動作したいので変更 */
+    cps #CPSR_MODE_MONITOR
+    mov r0, #SCR_S                 // secureかつ FWビットを0に設定
+    CP15_SCR_WRITE r0
+
+/*HJPARK: initialize secure world  page table*/
+_setup_mmu:
+    ldr     r4, =pgdir_start
+    ldr     r4, [r4]
+    sub     r3, r4, #16384          @ Page directory size
+    bic     r3, r3, #0xff           @ Align the pointer
+    bic     r3, r3, #0x3f00
+
+/*
+ * Initialise the page tables, turning on the cacheable and bufferable
+ * bits for the RAM area only.
+ */
+
+@ clear pagetable region
+    mov     r0, r3
+    mov     r9, r0, lsr #18
+    mov     r9, r9, lsl #18         @ start of RAM
+    add     r10, r9, #0x10000000    @ a reasonable RAM size
+    ldr     r2, =mmu_flags
+    ldr     r2, [r2]
+    add     r1, r3, #16384
+
+1:
+    str     r2, [r0], #4            @ 1:1 mapping
+    add     r2, r2, #1048576
+    teq     r0, r1
+    bne     1b
+
+/*
+ * If ever we are running from Flash, then we surely want the cache
+ * to be enabled also for our execution instance...  We map 2MB of it
+ * so there is no map overlap problem for up to 1 MB compressed kernel.
+ * If the execution is in RAM then we would only be duplicating the above.
+*/
+    ldr     r2, =mmu_flags
+    ldr     r2, [r2]
+    mov     r1, pc
+    mov     r1, r1, lsr #20
+    orr     r2, r2, r1, lsl #20
+    add     r0, r3, r1, lsl #2
+    str     r2, [r0], #4
+    add     r2, r2, #1048576
+    str     r2, [r0]
+
+/*HJPARK: set page table for montior address space*/
+    ldr     r0, =vaddr_start
+    ldr     r0, [r0]
+    mov     r0, r0, lsr #20
+    add     r0, r3, r0, lsl #2
+    ldr     r2, =mmu_flags
+    ldr     r2, [r2]
+    mov     r1, pc, lsr #20
+    orr     r2, r2, r1, lsl #20
+    str     r2, [r0]
+
+
+__turn_mmu_on:
+    mov     r0, #0
+    mcr     p15, 0, r0, c7, c10, 4          @ drain write buffer
+    mcr     p15, 0, r0, c8, c7, 0           @ i,d,tlb flush
+
+    mrc     p15, 0, r0, c1, c0, 0           @ read control reg
+    orr     r0, r0, #1                      @ mmu enabled
+    bic     r0, r0, #2
+
+    mov     r2, #21
+    mcr     p15, 0, r2, c3, c0, 0           @ load domain access control
+    mcr     p15, 0, r3, c2, c0, 0           @ load page table pointer
+    mcr     p15, 0, r0, c1, c0, 0           @ write control reg
+    mrc     p15, 0, r4, c0, c0              @ read id reg
+
+    ldr sp, =_smm_stack_0             // safeg_start.cを動作させるために, スタック設定
+    ldr sp, [sp]
+
+#if 0
+    /*
+     *  bssセクションのクリア
+     */        
+start_1:
+    ldr  r1, =__bss_start
+    ldr  r2, =__bss_end
+    cmp  r1,r2
+    bhs  start_3
+    mov  r0,#0
+start_2:
+    str  r0,[r1],#4
+    cmp  r1, r2
+    blo  start_2
+
+    /*
+     *  dataセクションの初期化(ROM化対応)
+     *  __idata_start から __idata_end までを，__data_start 以降に
+     *  コピーする
+     */
+start_3:
+    ldr  r1, =__idata_start
+    ldr  r3, =__idata_end
+    cmp  r1, r3
+    bhs  start_5
+    ldr  r2, =__data_start
+start_4:        
+    ldr  r0, [r1],#4
+    str  r0, [r2],#4
+    cmp  r1, r3
+    blo  start_4
+#endif
+    /*
+     *  software_init_hook を呼出し（0 でない場合）
+     *
+     *  ソフトウェア環境（特にライブラリ）に依存して必要な初期化処
+     *  理がある場合は，software_init_hook という関数を用意すれば
+     *  よい．
+     */
+start_5:
+    ldr   r0, =software_init_hook
+    cmp   r0, #0x00
+    movne lr, pc
+    movne pc, r0 
+    
+    /*
+     * カーネルを起動する
+     */
+start_6:        
+    bl arm_main
+l_end:
+    b   l_end
+
+pgdir_start:
+.word	0x10008000
+vaddr_start:
+.word   0xf1f00000
+mmu_flags:
+.word   0x00011c0e

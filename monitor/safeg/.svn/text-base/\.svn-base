@@ -1,0 +1,298 @@
+/*
+ *  TOPPERS/SafeG Dual-OS monitor
+ *      Toyohashi Open Platform for Embedded Real-Time Systems/
+ *      Safety Gate Dual-OS monitor
+ *
+ *  Copyright (C) 2009-2011 by Embedded and Real-Time Systems Laboratory
+ *     Graduate School of Information Science, Nagoya University, JAPAN
+ *
+ *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
+ *  ア（本ソフトウェアを改変したものを含む．以下同じ）を使用・複製・改
+ *  変・再配布（以下，利用と呼ぶ）することを無償で許諾する．
+ *  (1) 本ソフトウェアをソースコードの形で利用する場合には，上記の著作
+ *      権表示，この利用条件および下記の無保証規定が，そのままの形でソー
+ *      スコード中に含まれていること．
+ *  (2) 本ソフトウェアを，ライブラリ形式など，他のソフトウェア開発に使
+ *      用できる形で再配布する場合には，再配布に伴うドキュメント（利用
+ *      者マニュアルなど）に，上記の著作権表示，この利用条件および下記
+ *      の無保証規定を掲載すること．
+ *  (3) 本ソフトウェアを，機器に組み込むなど，他のソフトウェア開発に使
+ *      用できない形で再配布する場合には，次のいずれかの条件を満たすこ
+ *      と．
+ *    (a) 再配布に伴うドキュメント（利用者マニュアルなど）に，上記の著
+ *        作権表示，この利用条件および下記の無保証規定を掲載すること．
+ *    (b) 再配布の形態を，別に定める方法によって，TOPPERSプロジェクトに
+ *        報告すること．
+ *  (4) 本ソフトウェアの利用により直接的または間接的に生じるいかなる損
+ *      害からも，上記著作権者およびTOPPERSプロジェクトを免責すること．
+ *      また，本ソフトウェアのユーザまたはエンドユーザからのいかなる理
+ *      由に基づく請求からも，上記著作権者およびTOPPERSプロジェクトを
+ *      免責すること．
+ *
+ *  本ソフトウェアは，無保証で提供されているものである．上記著作権者お
+ *  よびTOPPERSプロジェクトは，本ソフトウェアに関して，特定の使用目的
+ *  に対する適合性も含めて，いかなる保証も行わない．また，本ソフトウェ
+ *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
+ *  の責任を負わない．
+ *
+ */
+#include "arm.h"
+#include "safeg.h"
+#include "entry.h"
+#include "safeg_measures.h"
+
+typedef void (*startfunc) (void);
+
+/*
+ * コンテキストエリア
+ * レジスタ退避情報の保存領域
+ */
+extern unsigned long NtContextSavedArea0, NtContextSavedAreaEnd0,
+  TContextSavedArea0, TContextSavedAreaEnd0, NtContextBase0, TContextBase0;
+extern unsigned long NtContextSavedArea1, NtContextSavedAreaEnd1,
+  TContextSavedArea1, TContextSavedAreaEnd1, NtContextBase1, TContextBase1;
+extern unsigned long NtContextSavedArea2, NtContextSavedAreaEnd2,
+  TContextSavedArea2, TContextSavedAreaEnd2, NtContextBase2, TContextBase2;
+extern unsigned long NtContextSavedArea3, NtContextSavedAreaEnd3,
+  TContextSavedArea3, TContextSavedAreaEnd3, NtContextBase3, TContextBase3;
+
+extern void SafeGStart(unsigned long *, unsigned long *);
+extern unsigned long MonitorVectorTableBase;
+
+#define STACK_SIZE 128          /* 128 byte stack */
+unsigned long smm_stack[STACK_SIZE / 4];
+/* 
+ * 4コアサポート時にコンテキストエリアを参照するためのテーブル 
+ */
+unsigned long *const nt_area_table[4] = {
+	&NtContextSavedArea0,
+	&NtContextSavedArea1,
+	&NtContextSavedArea2,
+	&NtContextSavedArea3
+};
+unsigned long *const nt_area_end_table[4] = {
+	&NtContextSavedAreaEnd0,
+	&NtContextSavedAreaEnd1,
+	&NtContextSavedAreaEnd2,
+	&NtContextSavedAreaEnd3
+};
+unsigned long *const t_area_table[4] = {
+	&TContextSavedArea0,
+	&TContextSavedArea1,
+	&TContextSavedArea2,
+	&TContextSavedArea3
+};
+unsigned long *const t_area_end_table[4] = {
+	&TContextSavedAreaEnd0,
+	&TContextSavedAreaEnd1,
+	&TContextSavedAreaEnd2,
+	&TContextSavedAreaEnd3
+};
+unsigned long *const nt_base_table[4] = {
+	&NtContextBase0,
+	&NtContextBase1,
+	&NtContextBase2,
+	&NtContextBase3
+};
+unsigned long *const t_base_table[4] = {
+	&TContextBase0,
+	&TContextBase1,
+	&TContextBase2,
+	&TContextBase3
+};
+
+
+/* stack top をアセンブラのために設定する */
+unsigned long *const _smm_stack = &smm_stack[STACK_SIZE / 4 - 1];
+
+const unsigned long nt_start_address = 0;//normal_start_address;
+
+#ifdef SAFEG_MEASUREMENTS_ENABLE
+unsigned long int safeg_latency[MAX_COUNT];
+unsigned int latency_counter;
+#endif
+
+int QbSerialProbe(void);
+int QbSerialSend(void *Buffer, unsigned int Size);
+
+/*
+ * safeg自身の初期化を行う
+ */
+int
+safeg_init()
+{
+    unsigned long *addr = 0;
+    int cpu_id;
+
+    /*
+     * Monitor Vector Table Base Register へのアドレスを登録 
+     */
+    CP15_MVBAR_WRITE((int)(&MonitorVectorTableBase)+0x72000000);
+
+    /*
+     * Non-Secure Access Control Registerの設定
+     */
+    CP15_NSACR_WRITE(NSACR_SETTING);
+    
+    /*
+	 * get the CPUID
+	 */
+#ifdef SAFEG_KZMCA9
+    CP15_MPIDR_READ(cpu_id);
+    cpu_id &= 0x0f; // MPIDRの下位4bitのみを有効にする
+#else
+	cpu_id = 0;
+#endif
+
+    /*
+     * context areaの初期化.
+     * safeg 上で動作するOSが想定しているHWリセット時の値になるように,
+     * 適切な値を設定すること. 
+     * 
+     * マルチコア：コアIDでテーブルを引くように変更
+     */
+    // Context Area for Trust
+    for (addr = nt_area_table[cpu_id]; addr < nt_area_end_table[cpu_id]; addr++) {
+       	*addr = 0;
+    }
+    // Context Area for Non-trust
+    for (addr = t_area_table[cpu_id]; addr < t_area_end_table[cpu_id]; addr++) {
+       	*addr = 0;
+    } 
+
+    //    QbSerialProbe();
+
+    //    QbSerialSend(" Safeg Init!!!\n", 15);
+
+    return 0;
+}
+
+/*
+ * safeg_init, monitor_init に含まれない初期化を記述する
+ */
+int
+misc_init()
+{
+#ifdef ENABLE_FIQ_MANAGEMENT
+    *((unsigned long *) FIQ_COUNT) = 0;
+#endif
+
+#ifdef ENABLE_IRQ_MANAGEMENT
+    *((unsigned long *) IRQ_COUNT) = 0;
+#endif
+
+#ifdef SAFEG_MEASUREMENTS_ENABLE
+    latency_counter = 0;
+#ifdef SAFEG_KZMCA9
+    asm("mcr p15, 0, %0, c9, c12, 2"::"r"(0)); /* counter disabled */
+#else
+    asm("mcr p15, 0, %0, c15, c12, 0"::"r"(0)); /* counter disabled */
+#endif /* SAFEG_KZMCA9 */
+#endif
+
+    return 0;
+}
+
+int
+arm_main()
+{
+    safeg_init();
+    misc_init();
+    SafeGStart((unsigned long *) normal_start_address,	//kwlee
+               (unsigned long *) secure_start_address);
+    return 0;
+}
+
+#ifdef ENABLE_FIQ_MANAGEMENT
+/* fiq_management のテスト用関数 */
+void fiq_test()
+{
+	*((unsigned long *) FIQ_COUNT) += 1;
+}
+
+/*
+ * fiq 管理コードをこの関数から呼び出す.
+ * FIQ, IRQ 禁止状態で呼び出される.
+ * 呼び出し前のスクラッチレジスタは保存してあるので, スクラッチレジスタを破壊
+ * してもよい.
+ */
+void fiq_management()
+{
+    /*
+     * fiq_test(); 
+     */
+}
+#endif
+
+#ifdef ENABLE_IRQ_MANAGEMENT
+/* irq_management のテスト用関数 */
+void irq_test()
+{
+    *((unsigned long *) IRQ_COUNT) += 1;
+}
+
+/*
+ * irq 管理コードをこの関数から呼び出す.
+ * IRQ 禁止状態で呼び出される.
+ * 呼び出し前のスクラッチレジスタは保存してあるので, スクラッチレジスタを破壊
+ * してもよい.
+ */
+void irq_management()
+{
+    /*
+     * irq_test(); 
+     */
+}
+#endif
+
+#ifdef SAFEG_KZMCA9
+void hardware_init_hook()
+{
+    /*
+     * [TZPC CONFIGURATIONS]
+     * TZPC Base Address = 0x100E6000     
+     */
+    // 
+    *((unsigned int *) 0x100E6000) = 0x0;
+    
+    // Decode Protection 0 Set Register(TZPCDECPROT0Set)
+    //   * System configuration controller {TZPCDECPROT0Set[2]} is [secure]
+    //   * TZPC {TZPCDECPROT0Set[6]} is [secure]
+    //    *((unsigned int *) 0x100E6804) = 0xFFBB;
+    *((unsigned int *) 0x100E6804) = 0xFFFF;
+
+    // Decode Protectio 1 Set Register(TZPCDECPROT1Set)
+    //   * PL351 APB {TZPCDECPROT0[7]} is [secure]
+    //     ^ ToDo: これによりSMCバスに接続されるすべてのデバイスがアクセス禁止になる。
+    //             現状は、トラスト側のシリアルポートをセキュアにするために
+    //             行っているが、将来的にはトラスト側の使用するポートをUART0に変更するべき。
+    //   * 
+    //    *((unsigned int *) 0x100E6810) = 0xFF7F;
+    *((unsigned int *) 0x100E6810) = 0xFFFF;
+
+    // Decode Protectio 2 Set Register(TZPCDECPROT2Set)    
+    *((unsigned int *) 0x100E681C) = 0xFFFF;
+
+    /*
+     * [TZASC CONFIGURATIONS]
+     * TZASC Base Address = 0x100EC000
+     */
+
+    // Action Register
+    //*((volatile unsigned int *)0x100EC004) = 2;
+
+    // Region Attributes Register
+    //   * region 0
+    //     * Secure and Non-secure R/W is [Yes]
+    *((volatile unsigned int *)0x100EC108) = 0xF0000000;
+    //   * region 1
+    //     * region base address is [0x0]
+    //     * region size is [4MB]
+    //     * Secure R/W is [Yes], Non-secure R/W is [No]
+    //     * This field is [enable]
+    //*((volatile unsigned int *)0x100EC110) = 0x0;
+    //*((volatile unsigned int *)0x100EC118) = 0xC000002B;
+}
+#endif
+
+
